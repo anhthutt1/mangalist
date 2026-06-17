@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tủ Truyện Của Erika — Quản lý bộ sưu tập</title>
+    <title>Tủ Truyện Của Thư — Quản lý bộ sưu tập</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -1019,6 +1019,75 @@
         color: var(--muted);
         font-size: 12px;
       }
+      .special-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .special-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .special-row input {
+        border: 2px solid var(--ink);
+        border-radius: 4px;
+        padding: 9px 11px;
+        font-size: 14px;
+        background: var(--card);
+        color: var(--ink);
+        outline: none;
+      }
+      .special-row input:focus {
+        box-shadow: 2px 2px 0 var(--red);
+      }
+      .special-row .sp-name {
+        flex: 1;
+        min-width: 0;
+      }
+      .special-row .sp-price {
+        width: 104px;
+        flex-shrink: 0;
+      }
+      .sp-del {
+        width: 36px;
+        height: 39px;
+        flex-shrink: 0;
+        border: 2px solid var(--ink);
+        border-radius: 4px;
+        background: var(--paper);
+        font-family: "Oswald", sans-serif;
+        font-size: 20px;
+        line-height: 1;
+        color: var(--ink);
+        transition: 0.12s;
+      }
+      .sp-del:hover {
+        background: var(--red);
+        color: #fff;
+      }
+      .add-special {
+        width: 100%;
+        font-family: "Oswald", sans-serif;
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border: 2px dashed var(--ink);
+        border-radius: 4px;
+        padding: 9px 14px;
+        background: var(--card);
+        transition: 0.13s;
+      }
+      .add-special:hover {
+        background: #efe9df;
+      }
+      .tag.sp {
+        background: transparent;
+        color: var(--red);
+        border-color: var(--red);
+      }
     </style>
   </head>
   <body>
@@ -1216,6 +1285,13 @@
             </div>
           </div>
           <div class="total-preview" id="totalPreview"></div>
+          <div class="fld">
+            <label>Bản đặc biệt (nếu có)</label>
+            <div class="special-list" id="specialList"></div>
+            <button type="button" class="add-special" onclick="addSpecial()">
+              + Thêm bản đặc biệt
+            </button>
+          </div>
           <div class="fld-row">
             <div class="fld">
               <label>Tình trạng đọc</label
@@ -1449,6 +1525,7 @@
       let editingId = null;
       let formCover = "";
       let formRating = 0;
+      let formSpecials = [];
       const state = {
         cat: "all",
         read: "all",
@@ -1459,8 +1536,11 @@
 
       const $ = (s) => document.querySelector(s);
       const money = (n) => Number(n).toLocaleString("vi-VN") + "₫";
+      const specialTotal = (arr) =>
+        (arr || []).reduce((s, x) => s + (Number(x.price) || 0), 0);
       const itemTotal = (c) =>
-        (Number(c.price) || 0) * Math.max(1, Number(c.qty) || 1);
+        (Number(c.price) || 0) * Math.max(1, Number(c.qty) || 1) +
+        specialTotal(c.specials);
       const esc = (s) =>
         String(s == null ? "" : s).replace(
           /[&<>"]/g,
@@ -1622,6 +1702,11 @@
         <span class="tag ${c.readStatus || "unread"}">${
           READ_LABEL[c.readStatus] || "Chưa đọc"
         }</span>
+        ${
+          c.specials && c.specials.length
+            ? `<span class="tag sp">+${c.specials.length} bản ĐB</span>`
+            : ``
+        }
       </div>
       <div class="card-foot">
         <span class="price">${
@@ -1718,26 +1803,71 @@
           ? `<img src="${esc(cover)}" alt="">`
           : esc(shortTitle($("#f_title").value || "Bìa"));
       }
+      function readSpecialsFromDOM() {
+        return Array.from(
+          document.querySelectorAll("#specialList .special-row")
+        ).map((r) => ({
+          name: r.querySelector(".sp-name").value.trim(),
+          price: Number(r.querySelector(".sp-price").value) || 0,
+        }));
+      }
+      function renderSpecials() {
+        $("#specialList").innerHTML = formSpecials
+          .map(
+            (s, i) => `
+    <div class="special-row">
+      <input class="sp-name" type="text" placeholder="Tập đặc biệt (vd: Tập 7 bản ĐB)" value="${esc(
+        s.name
+      )}" oninput="updateTotalPreview()">
+      <input class="sp-price" type="number" min="0" placeholder="Giá" value="${
+        s.price ? esc(s.price) : ""
+      }" oninput="updateTotalPreview()">
+      <button type="button" class="sp-del" onclick="removeSpecial(${i})" aria-label="Xoá bản đặc biệt">×</button>
+    </div>`
+          )
+          .join("");
+      }
+      function addSpecial() {
+        formSpecials = readSpecialsFromDOM();
+        formSpecials.push({ name: "", price: 0 });
+        renderSpecials();
+        updateTotalPreview();
+        const rows = document.querySelectorAll("#specialList .special-row");
+        if (rows.length)
+          rows[rows.length - 1].querySelector(".sp-name").focus();
+      }
+      function removeSpecial(i) {
+        formSpecials = readSpecialsFromDOM();
+        formSpecials.splice(i, 1);
+        renderSpecials();
+        updateTotalPreview();
+      }
       function updateTotalPreview() {
         const p = Number($("#f_price").value) || 0,
           q = Math.max(1, Number($("#f_qty").value) || 1);
-        const el = $("#totalPreview");
-        if (p > 0)
+        const spSum = readSpecialsFromDOM().reduce(
+          (s, x) => s + (Number(x.price) || 0),
+          0
+        );
+        const base = p * q,
+          total = base + spSum,
+          el = $("#totalPreview");
+        if (total > 0) {
+          const d = [];
+          if (base > 0)
+            d.push(q > 1 ? `${money(p)}/cuốn × ${q}` : `${money(p)}`);
+          if (spSum > 0) d.push(`bản ĐB ${money(spSum)}`);
           el.innerHTML =
-            q > 1
-              ? `Thành tiền cả bộ: <b>${money(
-                  p * q
-                )}</b> <span class="tp-sub">(${money(
-                  p
-                )}/cuốn × ${q} cuốn)</span>`
-              : `Thành tiền: <b>${money(p)}</b>`;
-        else el.innerHTML = "";
+            `Thành tiền cả bộ: <b>${money(total)}</b>` +
+            (d.length ? ` <span class="tp-sub">(${d.join(" + ")})</span>` : "");
+        } else el.innerHTML = "";
       }
 
       function openEditor(id) {
         editingId = id || null;
         formCover = "";
         formRating = 0;
+        formSpecials = [];
         [
           "f_id",
           "f_title",
@@ -1768,6 +1898,12 @@
             $("#f_condition").value = c.condition || "";
             $("#f_price").value = c.price || "";
             $("#f_qty").value = c.qty || 1;
+            formSpecials = Array.isArray(c.specials)
+              ? c.specials.map((s) => ({
+                  name: s.name || "",
+                  price: Number(s.price) || 0,
+                }))
+              : [];
             $("#f_read").value = c.readStatus || "unread";
             $("#f_coverStyle").value = c.coverStyle || "red";
             $("#f_cover").value =
@@ -1786,6 +1922,7 @@
         }
         buildStarInput();
         updateCoverPrev();
+        renderSpecials();
         updateTotalPreview();
         $("#overlay").classList.add("open");
         setTimeout(() => $("#f_title").focus(), 120);
@@ -1810,6 +1947,7 @@
           condition: $("#f_condition").value.trim(),
           price: Number($("#f_price").value) || 0,
           qty: Math.max(1, Number($("#f_qty").value) || 1),
+          specials: readSpecialsFromDOM().filter((s) => s.name || s.price > 0),
           readStatus: $("#f_read").value,
           rating: formRating,
           coverStyle: $("#f_coverStyle").value,
@@ -1908,6 +2046,12 @@
               condition: c.condition || "",
               price: Number(c.price) || 0,
               qty: Number(c.qty) || 1,
+              specials: Array.isArray(c.specials)
+                ? c.specials.map((s) => ({
+                    name: String(s.name || ""),
+                    price: Number(s.price) || 0,
+                  }))
+                : [],
               dateAdded: c.dateAdded || todayStr(),
               readStatus: c.readStatus || "unread",
               rating: Number(c.rating) || 0,
