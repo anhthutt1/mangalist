@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tủ Truyện Của Tôi — Quản lý bộ sưu tập</title>
+    <title>Tủ Truyện Của Erika — Quản lý bộ sưu tập</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -997,6 +997,28 @@
           transition: none !important;
         }
       }
+      .total-preview {
+        font-size: 13.5px;
+        color: var(--ink);
+        background: #fdf6df;
+        border: 1.5px solid #e8d8a0;
+        border-radius: 4px;
+        padding: 9px 12px;
+        margin: -3px 0 13px;
+      }
+      .total-preview:empty {
+        display: none;
+      }
+      .total-preview b {
+        font-family: "Oswald", sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--red);
+      }
+      .total-preview .tp-sub {
+        color: var(--muted);
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -1009,7 +1031,7 @@
               <path d="M9 8h6M9 11h6" /></svg
           ></span>
           <span class="logo-text"
-            >Tủ Truyện Của Erika<small> Niềm yêu thích từ bé</small></span
+            >Tủ Truyện Của Thư<small>Niềm yêu thích từ bé</small></span
           >
         </div>
         <div class="header-actions">
@@ -1047,7 +1069,7 @@
 
     <div class="wrap">
       <div class="page-head">
-        <h1>Bộ sưu tập yêu thích</h1>
+        <h1>Bộ sưu tập của Erika</h1>
         <p id="subline"></p>
       </div>
 
@@ -1066,9 +1088,6 @@
           </button>
           <button class="chip" data-cat="boxset">
             Boxset <span class="n" data-c="boxset"></span>
-          </button>
-          <button class="chip" data-cat="boxset">
-            Truyện tháng<span class="n" data-c="boxset"></span>
           </button>
         </div>
         <div class="spacer"></div>
@@ -1165,23 +1184,38 @@
               </select>
             </div>
             <div class="fld">
-              <label>Số tập</label
+              <label>Số tập (mô tả)</label
               ><input
                 type="text"
                 id="f_volumes"
-                placeholder="Tập 105 / 45 tập"
+                placeholder="Trọn bộ / Tập 1–18 / Boxset…"
               />
             </div>
           </div>
           <div class="fld-row">
             <div class="fld">
-              <label>Giá mua (đồng)</label
-              ><input type="number" id="f_price" placeholder="32000" min="0" />
+              <label>Giá mua / cuốn (đồng)</label
+              ><input
+                type="number"
+                id="f_price"
+                placeholder="32000"
+                min="0"
+                oninput="updateTotalPreview()"
+              />
             </div>
             <div class="fld">
-              <label>Ngày mua</label><input type="date" id="f_date" />
+              <label>Số cuốn</label
+              ><input
+                type="number"
+                id="f_qty"
+                placeholder="1"
+                min="1"
+                value="1"
+                oninput="updateTotalPreview()"
+              />
             </div>
           </div>
+          <div class="total-preview" id="totalPreview"></div>
           <div class="fld-row">
             <div class="fld">
               <label>Tình trạng đọc</label
@@ -1425,6 +1459,8 @@
 
       const $ = (s) => document.querySelector(s);
       const money = (n) => Number(n).toLocaleString("vi-VN") + "₫";
+      const itemTotal = (c) =>
+        (Number(c.price) || 0) * Math.max(1, Number(c.qty) || 1);
       const esc = (s) =>
         String(s == null ? "" : s).replace(
           /[&<>"]/g,
@@ -1496,13 +1532,12 @@
         const total = items.length;
         const byCat = (k) => items.filter((c) => c.category === k).length;
         const readN = items.filter((c) => c.readStatus === "read").length;
-        const spend = items.reduce((s, c) => s + (Number(c.price) || 0), 0);
-        const thisMonth = items.filter(
-          (c) => monthKey(c.dateAdded) === monthKey(todayStr())
-        ).length;
+        const spend = items.reduce((s, c) => s + itemTotal(c), 0);
         $("#subline").innerHTML =
           total > 0
-            ? `Bạn đang có <b>${total}</b> đầu truyện · tháng này thêm <b>${thisMonth}</b> cuốn mới`
+            ? `Bạn đang có <b>${total}</b> đầu truyện · tổng giá trị <b>${money(
+                spend
+              )}</b>`
             : `Chưa có truyện nào — bấm “Thêm truyện” để bắt đầu nhé!`;
         $("#stats").innerHTML = `
     <div class="stat"><div class="num">${total}</div><div class="lbl">Tổng đầu truyện</div></div>
@@ -1518,7 +1553,7 @@
     <div class="stat accent"><div class="num">${readN}</div><div class="lbl">Đã đọc</div></div>
     <div class="stat dark"><div class="num">${money(
       spend
-    )}</div><div class="lbl">Tổng đã chi</div></div>`;
+    )}</div><div class="lbl">Tổng giá trị</div></div>`;
       }
       function updateChipCounts() {
         document.querySelectorAll("[data-c]").forEach((el) => {
@@ -1589,8 +1624,14 @@
         }</span>
       </div>
       <div class="card-foot">
-        <span class="price">${Number(c.price) > 0 ? money(c.price) : "—"}</span>
-        <span class="card-date">${fmtDate(c.dateAdded)}</span>
+        <span class="price">${
+          itemTotal(c) > 0 ? money(itemTotal(c)) : "—"
+        }</span>
+        ${
+          (Number(c.qty) || 1) > 1
+            ? `<span class="card-date">${Number(c.qty)} cuốn</span>`
+            : ``
+        }
       </div>
     </div></article>`;
       }
@@ -1623,7 +1664,7 @@
           box.innerHTML = keys
             .map((k) => {
               const g = groups[k].sort((x, y) => y.id - x.id);
-              const spend = g.reduce((s, c) => s + (Number(c.price) || 0), 0);
+              const spend = g.reduce((s, c) => s + itemTotal(c), 0);
               return `<section class="month-sec">
         <div class="month-head"><h3>${
           k === "0000-00" ? "Chưa rõ ngày" : monthLabel(k)
@@ -1677,6 +1718,21 @@
           ? `<img src="${esc(cover)}" alt="">`
           : esc(shortTitle($("#f_title").value || "Bìa"));
       }
+      function updateTotalPreview() {
+        const p = Number($("#f_price").value) || 0,
+          q = Math.max(1, Number($("#f_qty").value) || 1);
+        const el = $("#totalPreview");
+        if (p > 0)
+          el.innerHTML =
+            q > 1
+              ? `Thành tiền cả bộ: <b>${money(
+                  p * q
+                )}</b> <span class="tp-sub">(${money(
+                  p
+                )}/cuốn × ${q} cuốn)</span>`
+              : `Thành tiền: <b>${money(p)}</b>`;
+        else el.innerHTML = "";
+      }
 
       function openEditor(id) {
         editingId = id || null;
@@ -1690,6 +1746,7 @@
           "f_volumes",
           "f_condition",
           "f_price",
+          "f_qty",
           "f_cover",
           "f_note",
         ].forEach((k) => ($("#" + k).value = ""));
@@ -1697,7 +1754,7 @@
         $("#f_read").value = "unread";
         $("#f_coverStyle").value = "red";
         $("#f_file").value = "";
-        $("#f_date").value = todayStr();
+        $("#f_qty").value = "1";
         if (id) {
           const c = items.find((x) => x.id === id);
           if (c) {
@@ -1710,7 +1767,7 @@
             $("#f_volumes").value = c.volumes || "";
             $("#f_condition").value = c.condition || "";
             $("#f_price").value = c.price || "";
-            $("#f_date").value = c.dateAdded || todayStr();
+            $("#f_qty").value = c.qty || 1;
             $("#f_read").value = c.readStatus || "unread";
             $("#f_coverStyle").value = c.coverStyle || "red";
             $("#f_cover").value =
@@ -1729,6 +1786,7 @@
         }
         buildStarInput();
         updateCoverPrev();
+        updateTotalPreview();
         $("#overlay").classList.add("open");
         setTimeout(() => $("#f_title").focus(), 120);
       }
@@ -1751,7 +1809,7 @@
           volumes: $("#f_volumes").value.trim(),
           condition: $("#f_condition").value.trim(),
           price: Number($("#f_price").value) || 0,
-          dateAdded: $("#f_date").value || todayStr(),
+          qty: Math.max(1, Number($("#f_qty").value) || 1),
           readStatus: $("#f_read").value,
           rating: formRating,
           coverStyle: $("#f_coverStyle").value,
@@ -1766,7 +1824,7 @@
           const newId = items.length
             ? Math.max(...items.map((c) => c.id)) + 1
             : 1;
-          items.unshift({ id: newId, ...data });
+          items.unshift({ id: newId, dateAdded: todayStr(), ...data });
           showToast("Đã thêm vào tủ truyện");
         }
         save();
@@ -1849,6 +1907,7 @@
               volumes: c.volumes || "",
               condition: c.condition || "",
               price: Number(c.price) || 0,
+              qty: Number(c.qty) || 1,
               dateAdded: c.dateAdded || todayStr(),
               readStatus: c.readStatus || "unread",
               rating: Number(c.rating) || 0,
